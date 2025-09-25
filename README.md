@@ -7,6 +7,5 @@ A simple Python-based tool to fetch the IP addresses of websites using socket pr
 - Supports multiple queries in a loop
 - Handles invalid domains gracefully
 
-## Usage
-```bash
-python info_gather.py
+## Try the live demo here 
+👉[https://swatin9.github.io/Information-gathering-tool/]
