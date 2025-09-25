@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>IP Finder — Information Gathering Tool</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; max-width:700px; margin:40px auto; padding:20px; line-height:1.5; }
+    h1 { margin-top:0; }
+    input, button { font-size:1rem; padding:10px; border-radius:8px; border:1px solid #ddd; }
+    button { cursor:pointer; }
+    .row { display:flex; gap:8px; margin-bottom:12px; }
+    .output { background:#f8f8f8; padding:12px; border-radius:8px; white-space:pre-wrap; }
+    .small { font-size:.85rem; color:#666; }
+  </style>
+</head>
+<body>
+  <h1>IP Finder ✨</h1>
+  <p class="small">Type a domain (example: <code>youtube.com</code>) and press <strong>Find IP</strong>. Uses public DNS-over-HTTPS to look up A / AAAA records.</p>
+
+  <div class="row">
+    <input id="domain" placeholder="example.com" aria-label="domain" style="flex:1" />
+    <button id="btn">Find IP</button>
+  </div>
+
+  <div id="status" class="small"></div>
+  <div id="result" class="output" style="display:none"></div>
+
+  <script>
+    const btn = document.getElementById('btn');
+    const domainInput = document.getElementById('domain');
+    const status = document.getElementById('status');
+    const result = document.getElementById('result');
+
+    async function lookup(domain) {
+      if (!domain) return;
+      status.textContent = 'Looking up ' + domain + ' ...';
+      result.style.display = 'none';
+      result.textContent = '';
+
+      // Use Google's DNS-over-HTTPS JSON endpoint
+      const url = 'https://dns.google/resolve?name=' + encodeURIComponent(domain) + '&type=1'; // type=1 => A records
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Network error');
+
+        const data = await res.json();
+
+        if (data.Status !== 0 || !data.Answer) {
+          // try AAAA (IPv6) if no A
+          if (!data.Answer) {
+            const url6 = 'https://dns.google/resolve?name=' + encodeURIComponent(domain) + '&type=28';
+            const res6 = await fetch(url6);
+            if (res6.ok) {
+              const data6 = await res6.json();
+              if (data6.Answer) {
+                showAnswers(domain, data6.Answer);
+                status.textContent = '';
+                return;
+              }
+            }
+          }
+          status.textContent = 'No A records found or domain could not be resolved.';
+          return;
+        }
+
+        showAnswers(domain, data.Answer);
+        status.textContent = '';
+      } catch (e) {
+        status.textContent = 'Error: ' + e.message + '. Try again or check your connection.';
+      }
+    }
+
+    function showAnswers(domain, answers) {
+      const lines = [];
+      lines.push('Domain: ' + domain);
+      lines.push('Records found: ' + answers.length);
+      lines.push('');
+      answers.forEach((a, i) => {
+        // a.data contains the IP (for A/AAAA records)
+        lines.push((i+1) + '. ' + a.data + ' (' + recordTypeToName(a.type) + ')');
+      });
+      result.textContent = lines.join('\\n');
+      result.style.display = 'block';
+    }
+
+    function recordTypeToName(t) {
+      // basic mapping for common types
+      if (t === 1) return 'A (IPv4)';
+      if (t === 28) return 'AAAA (IPv6)';
+      return 'type ' + t;
+    }
+
+    btn.onclick = () => lookup(domainInput.value.trim());
+    domainInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') lookup(domainInput.value.trim()); });
+  </script>
+</body>
+</html>
